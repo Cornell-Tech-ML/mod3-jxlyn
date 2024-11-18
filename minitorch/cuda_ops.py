@@ -462,25 +462,21 @@ def _tensor_matrix_multiply(
     temp = 0
 
     for k in range(0, a_shape[-1], BLOCK_DIM):
-        if i < a_shape[-2] and (pj + k) < a_shape[-1]:
-            a_pos = (
-                batch * a_batch_stride + i * a_strides[-2] + (pj + k) * a_strides[-1]
-            )
+        if ((pj + k) < a_shape[-1] and i < a_shape[-2]):
+            a_pos = (batch * a_batch_stride + i * a_strides[-2] + (pj + k) * a_strides[-1])
             a_shared[pi, pj] = a_storage[a_pos]
 
-        if j < b_shape[-1] and (pi + k) < b_shape[-2]:
-            b_pos = (
-                batch * b_batch_stride + (pi + k) * b_strides[-2] + j * b_strides[-1]
-            )
+        if ((pi + k) < b_shape[-2] and j < b_shape[-1]):
+            b_pos = (batch * b_batch_stride + (pi + k) * b_strides[-2] + j * b_strides[-1])
             b_shared[pi, pj] = b_storage[b_pos]
 
         cuda.syncthreads()
 
-        for block in range(min(BLOCK_DIM, a_shape[-1] - k)):
+        for block in range(min(a_shape[-1] - k, BLOCK_DIM)):
             temp += a_shared[pi, block] * b_shared[block, pj]
 
-    if j < out_shape[-1] and i < out_shape[-2] and batch < out_shape[0]:
-        out_pos = batch * out_strides[0] + i * out_strides[-2] + j * out_strides[-1]
+    if (batch < out_shape[0] and i < out_shape[-2] and j < out_shape[-1]):
+        out_pos = batch * out_strides[0] + j * out_strides[-1] + i * out_strides[-2]
         out[out_pos] = temp
 
 

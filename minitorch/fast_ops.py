@@ -168,9 +168,7 @@ def tensor_map(
         in_shape: Shape,
         in_strides: Strides,
     ) -> None:
-        if np.array_equal(out_shape, in_shape) and np.array_equal(
-            out_strides, in_strides
-        ):
+        if np.array_equal(out_shape, in_shape) and np.array_equal(out_strides, in_strides):
             for i in prange(len(out)):
                 out[i] = fn(in_storage[i])
             return
