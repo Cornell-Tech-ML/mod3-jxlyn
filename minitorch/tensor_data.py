@@ -4,7 +4,6 @@ import random
 from typing import Iterable, Optional, Sequence, Tuple, Union
 
 import numba
-import numba.cuda
 import numpy as np
 import numpy.typing as npt
 from numpy import array, float64
@@ -46,11 +45,10 @@ def index_to_position(index: Index, strides: Strides) -> int:
         Position in storage
 
     """
-    assert len(index) == len(strides)
-    position = 0
-    for i, stride in zip(index, strides):
-        position += i * stride
-    return position
+    pos = 0
+    for idx, stride in zip(index, strides):
+        pos += idx * stride
+    return pos
 
 
 def to_index(ordinal: int, shape: Shape, out_index: OutIndex) -> None:
@@ -66,14 +64,19 @@ def to_index(ordinal: int, shape: Shape, out_index: OutIndex) -> None:
         out_index : return index corresponding to position.
 
     """
-    remaining_ordinal = ordinal
+    cur_ord = ordinal + 0
+    for i in range(len(shape) - 1, -1, -1):
+        sh = shape[i]
+        out_index[i] = int(cur_ord % sh)
+        cur_ord = cur_ord // sh
+    # seq_shape: Sequence[int] = map(int, list(shape))
+    # strides = strides_from_shape(seq_shape)
 
-    for dimension, size in enumerate(shape):
-        remaining_product = prod(shape[dimension:])
-        current_divisor = remaining_product / size
-        current_index = int(remaining_ordinal // current_divisor)
-        remaining_ordinal -= current_index * current_divisor
-        out_index[dimension] = current_index
+    # curr = ordinal
+    # for i in range(len(shape)):
+    #     index_i = np.floor(curr / strides[i])
+    #     curr -= index_i * strides[i]
+    #     out_index[i] = index_i
 
 
 def broadcast_index(
@@ -97,11 +100,13 @@ def broadcast_index(
         None
 
     """
-    for i in range(len(shape)):
-        if shape[i] > 1:
-            out_index[i] = big_index[len(big_shape) - len(shape) + i]
+    # since big_shape is a bradcasted version of shape, we know if there are any extra dimesnions they are to the left and do not affect our original index. For remaining indices, if the dim is the same, then the index gets copied, if the dim is bigger (meaning original must be 1) then the index is 0
+    for i, s in enumerate(shape):
+        if s > 1:
+            out_index[i] = big_index[i + (len(big_shape) - len(shape))]
         else:
             out_index[i] = 0
+    return
 
 
 def shape_broadcast(shape1: UserShape, shape2: UserShape) -> UserShape:
@@ -121,31 +126,28 @@ def shape_broadcast(shape1: UserShape, shape2: UserShape) -> UserShape:
         IndexingError : if cannot broadcast
 
     """
-    # Determine the length of the new shape
-    max_len = max(len(shape1), len(shape2))
+    shape1, shape2 = list(shape1), list(shape2)
+    diff = len(shape1) - len(shape2)
+    # Add 1s to left
+    if diff < 0:  # shape1 smaller by -diff
+        shape1 = [1] * (-diff) + shape1
+    elif diff > 0:  # shape2 smaller by diff
+        shape2 = [1] * diff + shape2
 
-    # Pad the shorter shape with 1s on the left to match lengths
-    padded_shape1 = [1] * (max_len - len(shape1)) + list(shape1)
-    padded_shape2 = [1] * (max_len - len(shape2)) + list(shape2)
-
-    result_shape = []
-
-    # Apply broadcasting rules to create the resulting shape
-    for dim1, dim2 in zip(padded_shape1, padded_shape2):
-        if dim1 == dim2:
-            result_shape.append(dim1)
-        elif dim1 == 1:
-            result_shape.append(dim2)
-        elif dim2 == 1:
-            result_shape.append(dim1)
+    # select correct value for each dimension
+    out = []
+    for dim_1, dim_2 in zip(shape1, shape2):
+        if dim_1 == dim_2 or dim_1 == 1 or dim_2 == 1:
+            out.append(max(dim_1, dim_2))
         else:
-            raise IndexingError(f"Cannot broadcast shapes {shape1} and {shape2}.")
+            raise IndexingError(
+                f"cannot broadcast shapes (w/ padded 1s) shape1={shape1} and shape2={shape2} on dim_1={dim_1} and dim_2={dim_2}"
+            )
 
-    return tuple(result_shape)
+    return tuple(out)
 
 
 def strides_from_shape(shape: UserShape) -> UserStrides:
-    """Return a contiguous stride for a shape"""
     layout = [1]
     offset = 1
     for s in reversed(shape):
@@ -189,7 +191,6 @@ class TensorData:
         assert len(self._storage) == self.size
 
     def to_cuda_(self) -> None:  # pragma: no cover
-        """Convert to cuda"""
         if not numba.cuda.is_cuda_array(self._storage):
             self._storage = numba.cuda.to_device(self._storage)
 
@@ -210,49 +211,15 @@ class TensorData:
 
     @staticmethod
     def shape_broadcast(shape_a: UserShape, shape_b: UserShape) -> UserShape:
-        """Broadcast two shapes to create a new union shape.
-
-        Args:
-        ----
-            shape_a : first shape
-            shape_b : second shape
-
-        Returns:
-        -------
-            broadcasted shape
-
-        Raises:
-        ------
-            IndexingError : if cannot broadcast
-
-        """
         return shape_broadcast(shape_a, shape_b)
 
     def index(self, index: Union[int, UserIndex]) -> int:
-        """Convert a user index to a position in storage.
-
-        Args:
-        ----
-            index : index tuple
-
-        Returns:
-        -------
-            position in storage
-
-        Raises:
-        ------
-            IndexingError : if index is out of range
-
-        """
         if isinstance(index, int):
             aindex: Index = array([index])
-        else:
+        if isinstance(index, tuple):
             aindex = array(index)
 
-        shape = self.shape
-        if len(shape) == 0 and len(aindex) != 0:
-            shape = (1,)
-
+        # Check for errors
         if aindex.shape[0] != len(self.shape):
             raise IndexingError(f"Index {aindex} must be size of {self.shape}.")
         for i, ind in enumerate(aindex):
@@ -261,16 +228,10 @@ class TensorData:
             if ind < 0:
                 raise IndexingError(f"Negative indexing for {aindex} not supported.")
 
+        # Call fast indexing.
         return index_to_position(array(index), self._strides)
 
     def indices(self) -> Iterable[UserIndex]:
-        """Iterate over all indices in the tensor.
-
-        Returns
-        -------
-            Iterable of indices
-
-        """
         lshape: Shape = array(self.shape)
         out_index: Index = array(self.shape)
         for i in range(self.size):
@@ -278,37 +239,16 @@ class TensorData:
             yield tuple(out_index)
 
     def sample(self) -> UserIndex:
-        """Get a random valid index"""
         return tuple((random.randint(0, s - 1) for s in self.shape))
 
     def get(self, key: UserIndex) -> float:
-        """Get a value from the tensor.
-
-        Args:
-        ----
-            key : index tuple
-
-        Returns:
-        -------
-            value at index
-
-        """
         x: float = self._storage[self.index(key)]
         return x
 
     def set(self, key: UserIndex, val: float) -> None:
-        """Set a value in the tensor.
-
-        Args:
-        ----
-            key : index tuple
-            val : value to set
-
-        """
         self._storage[self.index(key)] = val
 
     def tuple(self) -> Tuple[Storage, Shape, Strides]:
-        """Return core tensor data as a tuple."""
         return (self._storage, self._shape, self._strides)
 
     def permute(self, *order: int) -> TensorData:
@@ -316,7 +256,7 @@ class TensorData:
 
         Args:
         ----
-            *order: a permutation of the dimensions
+            order (list): a permutation of the dimensions
 
         Returns:
         -------
@@ -327,14 +267,17 @@ class TensorData:
             range(len(self.shape))
         ), f"Must give a position to each dimension. Shape: {self.shape} Order: {order}"
 
-        return TensorData(
-            self._storage,
-            tuple(self.shape[x] for x in order),
-            tuple(self.strides[x] for x in order),
-        )
+        new_shape = list(self.shape)
+        new_strides = list(self.strides)
+        for i, new_idx in enumerate(order):
+            new_shape[i] = self.shape[new_idx]
+            new_strides[i] = self.strides[new_idx]
+
+        ret_shape: Sequence[int] = tuple(new_shape)
+
+        return TensorData(self._storage, ret_shape, tuple(new_strides))
 
     def to_string(self) -> str:
-        """Convert to string"""
         s = ""
         for index in self.indices():
             l = ""
