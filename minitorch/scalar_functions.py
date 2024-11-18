@@ -38,6 +38,17 @@ class ScalarFunction:
 
     @classmethod
     def apply(cls, *vals: ScalarLike) -> Scalar:
+        """Apply the function to a set of Scalar values.
+
+        Args:
+        ----
+            *vals : The input values to the function.
+
+        Returns:
+        -------
+            Scalar : The output value.
+
+        """
         raw_vals = []
         scalars = []
         for v in vals:
@@ -66,10 +77,35 @@ class Add(ScalarFunction):
 
     @staticmethod
     def forward(ctx: Context, a: float, b: float) -> float:
+        """Forward pass for addition
+
+        Args:
+        ----
+            ctx : Context object
+            a : float
+            b : float
+
+        Returns:
+        -------
+            float : a + b
+
+        """
         return a + b
 
     @staticmethod
     def backward(ctx: Context, d_output: float) -> Tuple[float, ...]:
+        """Backward pass for addition
+
+        Args:
+        ----
+            ctx : Context object
+            d_output : float
+
+        Returns:
+        -------
+            Tuple[float, float] : d_output, d_output
+
+        """
         return d_output, d_output
 
 
@@ -78,15 +114,335 @@ class Log(ScalarFunction):
 
     @staticmethod
     def forward(ctx: Context, a: float) -> float:
+        """Forward pass for log
+
+        Args:
+        ----
+            ctx : Context object
+            a : float
+
+        Returns:
+        -------
+            float : log(a)
+
+        """
         ctx.save_for_backward(a)
         return operators.log(a)
 
     @staticmethod
     def backward(ctx: Context, d_output: float) -> float:
+        """Backward pass for log
+
+        Args:
+        ----
+            ctx : Context object
+            d_output : float
+
+        Returns:
+        -------
+            float : d_output / a
+
+        """
         (a,) = ctx.saved_values
         return operators.log_back(a, d_output)
 
 
-# To implement.
+class Mul(ScalarFunction):
+    """Multiplication function $f(x, y) = x * y$"""
+
+    @staticmethod
+    def forward(ctx: Context, a: float, b: float) -> float:
+        """Forward pass for multiplication
+
+        Args:
+        ----
+            ctx : Context object
+            a : float
+            b : float
+
+        Returns:
+        -------
+            float : a * b
+
+        """
+        ctx.save_for_backward(a, b)
+        return a * b
+
+    @staticmethod
+    def backward(ctx: Context, d_output: float) -> Tuple[float, ...]:
+        """Backward pass for multiplication
+
+        Args:
+        ----
+            ctx : Context object
+            d_output : float
+
+        Returns:
+        -------
+            Tuple[float, float] : b * d_output, a * d_output
+
+        """
+        a, b = ctx.saved_values
+        return b * d_output, a * d_output
 
 
+class Inv(ScalarFunction):
+    """Inverse function $f(x) = 1/x$"""
+
+    @staticmethod
+    def forward(ctx: Context, a: float) -> float:
+        """Forward pass for inverse
+
+        Args:
+        ----
+            ctx : Context object
+            a : float
+
+        Returns:
+        -------
+            float : 1 / a
+
+        """
+        ctx.save_for_backward(a)
+        return operators.inv(a)
+
+    @staticmethod
+    def backward(ctx: Context, d_output: float) -> float:
+        """Backward pass for inverse
+
+        Args:
+        ----
+            ctx : Context object
+            d_output : float
+
+        Returns:
+        -------
+            float : -d_output / a^2
+
+        """
+        (a,) = ctx.saved_values
+        return operators.inv_back(a, d_output)
+
+
+class Neg(ScalarFunction):
+    """Negation function $f(x) = -x$"""
+
+    @staticmethod
+    def forward(ctx: Context, a: float) -> float:
+        """Forward pass for negation
+
+        Args:
+        ----
+            ctx : Context object
+            a : float
+
+        Returns:
+        -------
+            float : -a
+
+        """
+        return -a
+
+    @staticmethod
+    def backward(ctx: Context, d_output: float) -> float:
+        """Backward pass for negation
+
+        Args:
+        ----
+            ctx : Context object
+            d_output : float
+
+        Returns:
+        -------
+            float : -d_output
+
+        """
+        return -d_output
+
+
+class Sigmoid(ScalarFunction):
+    """Sigmoid function $f(x) = (1 / (1 + exp(-x)))$"""
+
+    @staticmethod
+    def forward(ctx: Context, a: float) -> float:
+        """Forward pass for sigmoid
+
+        Args:
+        ----
+            ctx : Context object
+            a : float
+
+        Returns:
+        -------
+            float : 1 / (1 + exp(-a))
+
+        """
+        ctx.save_for_backward(a)
+        return operators.sigmoid(a)
+
+    @staticmethod
+    def backward(ctx: Context, d_output: float) -> float:
+        """Backward pass for sigmoid
+
+        Args:
+        ----
+            ctx : Context object
+            d_output : float
+
+        Returns:
+        -------
+            float : sigmoid(a) * (1 - sigmoid(a)) * d_output
+
+        """
+        (a,) = ctx.saved_values
+        return operators.sigmoid(a) * (1 - operators.sigmoid(a)) * d_output
+
+
+class ReLU(ScalarFunction):
+    """ReLU function $f(x) = max(0, x)$"""
+
+    @staticmethod
+    def forward(ctx: Context, a: float) -> float:
+        """Forward pass for ReLU
+
+        Args:
+        ----
+            ctx : Context object
+            a : float
+
+        Returns:
+        -------
+            float : max(0, a)
+
+        """
+        ctx.save_for_backward(a)
+        return operators.relu(a)
+
+    @staticmethod
+    def backward(ctx: Context, d_output: float) -> float:
+        """Backward pass for ReLU
+
+        Args:
+        ----
+            ctx : Context object
+            d_output : float
+
+        Returns:
+        -------
+            float : (a > 0) * d_output
+
+        """
+        (a,) = ctx.saved_values
+        return operators.relu_back(a, d_output)
+
+
+class Exp(ScalarFunction):
+    """Exponential function $f(x) = exp(x)$"""
+
+    @staticmethod
+    def forward(ctx: Context, a: float) -> float:
+        """Forward pass for exponential
+
+        Args:
+        ----
+            ctx : Context object
+            a : float
+
+        Returns:
+        -------
+            float : exp(a)
+
+        """
+        ctx.save_for_backward(a)
+        return operators.exp(a)
+
+    @staticmethod
+    def backward(ctx: Context, d_output: float) -> float:
+        """Backward pass for exponential
+
+        Args:
+        ----
+            ctx : Context object
+            d_output : float
+
+        Returns:
+        -------
+            float : exp(a) * d_output
+
+        """
+        (a,) = ctx.saved_values
+        return operators.exp(a) * d_output
+
+
+class LT(ScalarFunction):
+    """Less-than function $f(x, y) = 1.0$ if $x < y$ else $0.0$"""
+
+    @staticmethod
+    def forward(ctx: Context, a: float, b: float) -> float:
+        """Forward pass for less-than
+
+        Args:
+        ----
+            ctx : Context object
+            a : float
+            b : float
+
+        Returns:
+        -------
+            float : 1.0 if a < b else 0.0
+
+        """
+        return operators.lt(a, b)
+
+    @staticmethod
+    def backward(ctx: Context, d_output: float) -> Tuple[float, ...]:
+        """Backward pass for less-than
+
+        Args:
+        ----
+            ctx : Context object
+            d_output : float
+
+        Returns:
+        -------
+            Tuple[float, float] : 0.0, 0.0
+
+        """
+        return 0.0, 0.0
+
+
+class EQ(ScalarFunction):
+    """Equality function $f(x, y) = 1.0$ if $x == y$ else $0.0$"""
+
+    @staticmethod
+    def forward(ctx: Context, a: float, b: float) -> float:
+        """Forward pass for equality
+
+        Args:
+        ----
+            ctx : Context object
+            a : float
+            b : float
+
+        Returns:
+        -------
+            float : 1.0 if a == b else 0.0
+
+        """
+        return operators.eq(a, b)
+
+    @staticmethod
+    def backward(ctx: Context, d_output: float) -> Tuple[float, ...]:
+        """Backward pass for equality
+
+        Args:
+        ----
+            ctx : Context object
+            d_output : float
+
+        Returns:
+        -------
+            Tuple[float, float] : 0.0, 0.0
+
+        """
+        return 0.0, 0.0
