@@ -50,3 +50,4 @@ output of "python project/parallel_check.py":
 
 ![alt text](<Screen Shot 2024-11-18 at 4.48.55 PM.png>)
 
+# task 3_5

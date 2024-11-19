@@ -1,7 +1,6 @@
+import time
 import random
-
 import numba
-
 import minitorch
 
 datasets = minitorch.datasets
@@ -9,9 +8,9 @@ FastTensorBackend = minitorch.TensorBackend(minitorch.FastOps)
 if numba.cuda.is_available():
     GPUBackend = minitorch.TensorBackend(minitorch.CudaOps)
 
-
-def default_log_fn(epoch, total_loss, correct, losses):
-    print("Epoch ", epoch, " loss ", total_loss, "correct", correct)
+# update the function to record the time
+def default_log_fn(epoch, total_loss, correct, losses, duration):
+    print(f"Epoch {epoch} | Loss: {total_loss:.4f} | Correct: {correct} | Time: {duration:.2f}s")
 
 
 def RParam(*shape, backend):
@@ -75,7 +74,9 @@ class FastTrain:
         BATCH = 10
         losses = []
 
-        for epoch in range(max_epochs+1):
+        for epoch in range(max_epochs + 1):
+            start_time = time.time()  # Start timer
+
             total_loss = 0.0
             c = list(zip(data.X, data.y))
             random.shuffle(c)
@@ -83,10 +84,10 @@ class FastTrain:
 
             for i in range(0, len(X_shuf), BATCH):
                 optim.zero_grad()
-                X = minitorch.tensor(X_shuf[i : i + BATCH], backend=self.backend)
-                y = minitorch.tensor(y_shuf[i : i + BATCH], backend=self.backend)
-                # Forward
+                X = minitorch.tensor(X_shuf[i: i + BATCH], backend=self.backend)
+                y = minitorch.tensor(y_shuf[i: i + BATCH], backend=self.backend)
 
+                # Forward
                 out = self.model.forward(X).view(y.shape[0])
                 prob = (out * y) + (out - 1.0) * (y - 1.0)
                 loss = -prob.log()
@@ -105,7 +106,9 @@ class FastTrain:
                 out = self.model.forward(X).view(y.shape[0])
                 y2 = minitorch.tensor(data.y)
                 correct = int(((out.detach() > 0.5) == y2).sum()[0])
-                log_fn(epoch, total_loss, correct, losses)
+
+                duration = time.time() - start_time  # End timer
+                log_fn(epoch, total_loss, correct, losses, duration)
 
 
 if __name__ == "__main__":
@@ -126,7 +129,7 @@ if __name__ == "__main__":
     if args.DATASET == "xor":
         data = minitorch.datasets["Xor"](PTS)
     elif args.DATASET == "simple":
-        data = minitorch.datasets["Simple"].simple(PTS)
+        data = minitorch.datasets["Simple"](PTS)
     elif args.DATASET == "split":
         data = minitorch.datasets["Split"](PTS)
 
