@@ -4,6 +4,7 @@ import random
 from typing import Iterable, Optional, Sequence, Tuple, Union
 
 import numba
+import numba.cuda
 import numpy as np
 import numpy.typing as npt
 from numpy import array, float64
@@ -69,15 +70,6 @@ def to_index(ordinal: int, shape: Shape, out_index: OutIndex) -> None:
         sh = shape[i]
         out_index[i] = int(cur_ord % sh)
         cur_ord = cur_ord // sh
-    # seq_shape: Sequence[int] = map(int, list(shape))
-    # strides = strides_from_shape(seq_shape)
-
-    # curr = ordinal
-    # for i in range(len(shape)):
-    #     index_i = np.floor(curr / strides[i])
-    #     curr -= index_i * strides[i]
-    #     out_index[i] = index_i
-
 
 def broadcast_index(
     big_index: Index, big_shape: Shape, shape: Shape, out_index: OutIndex
@@ -148,6 +140,17 @@ def shape_broadcast(shape1: UserShape, shape2: UserShape) -> UserShape:
 
 
 def strides_from_shape(shape: UserShape) -> UserStrides:
+    """Compute strides from shape.
+
+    Args:
+    ----
+        shape : tensor shape
+
+    Returns:
+    -------
+        strides : tensor strides
+
+    """
     layout = [1]
     offset = 1
     for s in reversed(shape):
@@ -191,6 +194,7 @@ class TensorData:
         assert len(self._storage) == self.size
 
     def to_cuda_(self) -> None:  # pragma: no cover
+        """Convert to cuda"""
         if not numba.cuda.is_cuda_array(self._storage):
             self._storage = numba.cuda.to_device(self._storage)
 
@@ -211,15 +215,45 @@ class TensorData:
 
     @staticmethod
     def shape_broadcast(shape_a: UserShape, shape_b: UserShape) -> UserShape:
+        """Broadcast two shapes to create a new union shape.
+
+        Args:
+        ----
+            shape_a : first shape
+            shape_b : second shape
+
+        Returns:
+        -------
+            broadcasted shape
+
+        """
         return shape_broadcast(shape_a, shape_b)
 
     def index(self, index: Union[int, UserIndex]) -> int:
+        """Convert a user index to a position in storage.
+
+        Args:
+        ----
+            index : index tuple
+
+        Returns:
+        -------
+            position in storage
+
+        Raises:
+        ------
+            IndexingError : if index is out of range
+
+        """
         if isinstance(index, int):
             aindex: Index = array([index])
-        if isinstance(index, tuple):
+        else:
             aindex = array(index)
 
-        # Check for errors
+        shape = self.shape
+        if len(shape) == 0 and len(aindex) != 0:
+            shape = (1,)
+
         if aindex.shape[0] != len(self.shape):
             raise IndexingError(f"Index {aindex} must be size of {self.shape}.")
         for i, ind in enumerate(aindex):
@@ -228,10 +262,16 @@ class TensorData:
             if ind < 0:
                 raise IndexingError(f"Negative indexing for {aindex} not supported.")
 
-        # Call fast indexing.
         return index_to_position(array(index), self._strides)
 
     def indices(self) -> Iterable[UserIndex]:
+        """Generate all indices in the tensor.
+
+        Returns
+        -------
+            Iterator[UserIndex] : iterator of indices
+
+        """
         lshape: Shape = array(self.shape)
         out_index: Index = array(self.shape)
         for i in range(self.size):
@@ -239,16 +279,53 @@ class TensorData:
             yield tuple(out_index)
 
     def sample(self) -> UserIndex:
+        """Sample a random index from the tensor.
+
+        Returns
+        -------
+            UserIndex : random index
+
+        """
         return tuple((random.randint(0, s - 1) for s in self.shape))
 
     def get(self, key: UserIndex) -> float:
+        """Get the value at the given index.
+
+        Args:
+        ----
+            key : index to get value at
+
+        Returns:
+        -------
+            float : value at the given index
+
+        """
         x: float = self._storage[self.index(key)]
         return x
 
     def set(self, key: UserIndex, val: float) -> None:
+        """Set the value at the given index.
+
+        Args:
+        ----
+            key : index to set value at
+            val : value to set at the given index
+
+        Returns:
+        -------
+            None
+
+        """
         self._storage[self.index(key)] = val
 
     def tuple(self) -> Tuple[Storage, Shape, Strides]:
+        """Return the storage, shape, and strides of the tensor.
+
+        Returns
+        -------
+            tuple : storage, shape, strides
+
+        """
         return (self._storage, self._shape, self._strides)
 
     def permute(self, *order: int) -> TensorData:
@@ -278,6 +355,13 @@ class TensorData:
         return TensorData(self._storage, ret_shape, tuple(new_strides))
 
     def to_string(self) -> str:
+        """Return a string representation of the tensor.
+
+        Returns
+        -------
+            str : string representation of the tensor
+
+        """
         s = ""
         for index in self.indices():
             l = ""
