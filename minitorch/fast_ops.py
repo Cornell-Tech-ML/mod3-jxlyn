@@ -304,20 +304,9 @@ def tensor_reduce(
 
             for j in range(a_shape[reduce_dim]):
                 a_ord = base_a_ord + j * a_strides[reduce_dim]
-                curr_val = fn(curr_val, a_storage[a_ord])
+                curr_val = fn(curr_val, float(a_storage[a_ord]))
 
             out[out_ord] = curr_val
-        # for i in prange(len(out)):
-        #     out_idx = np.zeros(MAX_DIMS, np.int32)
-        #     to_index(i, out_shape, out_idx)
-        #     out_ord = index_to_position(out_idx, out_strides)
-        #     curr_val = out[out_ord]
-        #     for j in range(a_shape[reduce_dim]):
-        #         a_idx = out_idx
-        #         a_idx[reduce_dim] = j
-        #         a_ord = index_to_position(a_idx, a_strides)
-        #         curr_val = fn(curr_val, a_storage[a_ord])
-        #     out[out_ord] = curr_val
 
     return njit(_reduce, parallel=True)  # type: ignore
 
