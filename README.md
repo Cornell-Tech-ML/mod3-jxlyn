@@ -33,21 +33,22 @@ The files that will be synced are:
 
 # task 3_1
 output of "python project/parallel_check.py":
-
-![alt text](<Screen Shot 2024-11-18 at 4.46.28 PM.png>)
-
-![alt text](<Screen Shot 2024-11-18 at 4.46.47 PM.png>)
-
-![alt text](<Screen Shot 2024-11-18 at 4.47.53 PM.png>)
-
-![alt text](<Screen Shot 2024-11-18 at 4.48.11 PM.png>)
-
-![alt text](<Screen Shot 2024-11-18 at 4.48.22 PM.png>)
-
-![alt text](<Screen Shot 2024-11-18 at 4.48.33 PM.png>)
-
-![alt text](<Screen Shot 2024-11-18 at 4.48.46 PM.png>)
-
-![alt text](<Screen Shot 2024-11-18 at 4.48.55 PM.png>)
+![alt text](<Screen Shot 2024-11-19 at 12.40.44 PM.png>)
+![alt text](<Screen Shot 2024-11-19 at 12.41.10 PM.png>)
+![alt text](<Screen Shot 2024-11-19 at 12.41.32 PM.png>)
+![alt text](<Screen Shot 2024-11-19 at 12.41.49 PM.png>)
+![alt text](<Screen Shot 2024-11-19 at 12.42.08 PM.png>)
+![alt text](<Screen Shot 2024-11-19 at 12.42.21 PM.png>)
 
 # task 3_5
+I modify the run_fast_tensor code to print out the time / epoch
+1. Split dataset on CPU:
+![alt text](<split_cpu.png>)
+
+
+2. Simple dataset on CPU:
+![alt text](<simple_cpu.png>)
+
+
+3. XOR dataset on CPU:
+![alt text](<xor_cpu.png>)
