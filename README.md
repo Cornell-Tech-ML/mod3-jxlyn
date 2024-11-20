@@ -33,22 +33,51 @@ The files that will be synced are:
 
 # task 3_1
 output of "python project/parallel_check.py":
-![alt text](<Screen Shot 2024-11-19 at 12.40.44 PM.png>)
-![alt text](<Screen Shot 2024-11-19 at 12.41.10 PM.png>)
-![alt text](<Screen Shot 2024-11-19 at 12.41.32 PM.png>)
-![alt text](<Screen Shot 2024-11-19 at 12.41.49 PM.png>)
-![alt text](<Screen Shot 2024-11-19 at 12.42.08 PM.png>)
-![alt text](<Screen Shot 2024-11-19 at 12.42.21 PM.png>)
+
+Map:
+
+![alt text](<Screen Shot 2024-11-19 at 8.28.56 PM.png>)
+![alt text](<Screen Shot 2024-11-19 at 8.29.11 PM.png>)
+
+Zip:
+
+![alt text](<Screen Shot 2024-11-19 at 8.29.32 PM.png>)
+![alt text](<Screen Shot 2024-11-19 at 8.29.52 PM.png>)
+
+
+Reduce:
+
+![alt text](<Screen Shot 2024-11-19 at 8.25.12 PM.png>)
+![alt text](<Screen Shot 2024-11-19 at 8.25.30 PM.png>)
+
+Matrix Multiply:
+
+![alt text](<Screen Shot 2024-11-19 at 8.26.40 PM.png>)
+![alt text](<Screen Shot 2024-11-19 at 8.26.51 PM.png>)
+
 
 # task 3_5
-I modify the run_fast_tensor code to print out the time / epoch
+I modified the run_fast_tensor code to print out the time / epoch
 1. Split dataset on CPU:
-![alt text](<split_cpu.png>)
+![alt text](<Screen Shot 2024-11-19 at 7.21.51 PM.png>)
 
+Split dataset on GPU:
+![alt text](<Screen Shot 2024-11-19 at 7.33.31 PM.png>)
 
 2. Simple dataset on CPU:
-![alt text](<simple_cpu.png>)
+![alt text](<Screen Shot 2024-11-19 at 7.35.43 PM.png>)
 
+Simple dataset on GPU:
+![alt text](<Screen Shot 2024-11-19 at 7.36.08 PM.png>)
 
 3. XOR dataset on CPU:
-![alt text](<xor_cpu.png>)
+![alt text](<Screen Shot 2024-11-19 at 7.37.14 PM.png>)
+
+XOR dataset on GPU:
+![alt text](<Screen Shot 2024-11-19 at 7.37.45 PM.png>)
+
+
+Timing summary:
+![alt text](<Screen Shot 2024-11-19 at 7.12.02 PM.png>)
+
+![alt text](graph.jpeg)
